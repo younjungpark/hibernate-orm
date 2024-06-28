@@ -32,6 +32,7 @@ import org.hibernate.exception.spi.SQLExceptionConversionDelegate;
 import org.hibernate.internal.util.JdbcExceptionHelper;
 import org.hibernate.query.sqm.*;
 import org.hibernate.query.sqm.produce.function.FunctionParameterType;
+import org.hibernate.query.sqm.produce.function.StandardFunctionArgumentTypeResolvers;
 import org.hibernate.service.ServiceRegistry;
 import org.hibernate.sql.ast.SqlAstTranslator;
 import org.hibernate.sql.ast.SqlAstTranslatorFactory;
@@ -212,6 +213,25 @@ public class AltibaseDialect extends Dialect {
 		functionFactory.hypotheticalOrderedSetAggregates();
 		functionFactory.bitLength_pattern( "bit_length(?1)", "lengthb(?1)*8" );
 		functionFactory.octetLength_pattern( "octet_length(?1)", "lengthb(?1)" );
+
+		functionContributions.getFunctionRegistry().namedDescriptorBuilder( "numand" )
+				.setExactArgumentCount( 2 )
+				.setArgumentTypeResolver(StandardFunctionArgumentTypeResolvers.ARGUMENT_OR_IMPLIED_RESULT_TYPE )
+				.register();
+		functionContributions.getFunctionRegistry().registerAlternateKey( "bitand", "numand" );
+
+		functionContributions.getFunctionRegistry().namedDescriptorBuilder( "numor" )
+				.setExactArgumentCount( 2 )
+				.setArgumentTypeResolver(StandardFunctionArgumentTypeResolvers.ARGUMENT_OR_IMPLIED_RESULT_TYPE )
+				.register();
+		functionContributions.getFunctionRegistry().registerAlternateKey( "bitor", "numor" );
+
+		functionContributions.getFunctionRegistry().namedDescriptorBuilder( "numxor" )
+				.setExactArgumentCount( 2 )
+				.setArgumentTypeResolver(StandardFunctionArgumentTypeResolvers.ARGUMENT_OR_IMPLIED_RESULT_TYPE )
+				.register();
+		functionContributions.getFunctionRegistry().registerAlternateKey( "bitxor", "numxor" );
+
 		functionContributions.getFunctionRegistry().register(
 				"trunc",
 				new OracleTruncFunction( functionContributions.getTypeConfiguration() )
