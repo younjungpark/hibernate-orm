@@ -256,12 +256,12 @@ public class AltibaseDialect extends Dialect {
 
 	@Override
 	public String currentLocalTime() {
-		return currentTimestamp();
+		return currentLocalTimestamp();
 	}
 
 	@Override
 	public String currentLocalTimestamp() {
-		return currentTimestamp();
+		return "trunc(sysdate,'second')";
 	}
 
 	@Override
@@ -280,9 +280,13 @@ public class AltibaseDialect extends Dialect {
 		};
 	}
 
+	/**
+	 * In Altibase, timestampadd and timestampdiff with microseconds has an
+	 * limitations. So use seconds as the "native" precision.
+	 */
 	@Override
 	public long getFractionalSecondPrecisionInNanos() {
-		return 1_000; //microseconds
+		return 1_000_000_000; //seconds
 	}
 
 	/**
@@ -325,7 +329,7 @@ public class AltibaseDialect extends Dialect {
 			case NANOSECOND:
 				return "timestampadd(MICROSECOND,(?2)/1e3,?3)";
 			case NATIVE:
-				return "timestampadd(MICROSECOND, ?2, ?3)";
+				return "timestampadd(SECOND, ?2, ?3)";
 			default:
 				return "timestampadd(?1, ?2, ?3)";
 		}
@@ -335,11 +339,10 @@ public class AltibaseDialect extends Dialect {
 	public String timestampdiffPattern(TemporalUnit unit, TemporalType fromTemporalType, TemporalType toTemporalType) {
 		switch (unit) {
 			case SECOND:
+			case NATIVE:
 				return "datediff(?2, ?3, 'SECOND')";
 			case NANOSECOND:
 				return "datediff(?2, ?3, 'MICROSECOND')*1e3";
-			case NATIVE:
-				return "datediff(?2, ?3, 'MICROSECOND')";
 			default:
 				return "datediff(?2, ?3, '?1')";
 		}
