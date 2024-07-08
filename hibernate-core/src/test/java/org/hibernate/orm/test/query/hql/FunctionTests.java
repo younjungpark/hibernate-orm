@@ -1713,6 +1713,8 @@ public class FunctionTests {
 			reason = "numeric overflow")
 	@SkipForDialect( dialectClass = TiDBDialect.class,
 			reason = "Bug in the TiDB timestampadd function (https://github.com/pingcap/tidb/issues/41052)")
+	@SkipForDialect( dialectClass = AltibaseDialect.class,
+	        reason = "exceeds timestampadd limit in Altibase")
 	public void testDurationArithmeticOverflowing(SessionFactoryScope scope) {
 		scope.inTransaction(
 				session -> {
