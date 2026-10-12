@@ -47,6 +47,8 @@ import org.hibernate.dialect.Dialect;
 import org.hibernate.dialect.jdbc.spi.ParameterLimits;
 import org.hibernate.dialect.sql.ast.spi.DmlTargetColumnQualifierSupport;
 import org.hibernate.dialect.type.spi.NationalizationSupport;
+import org.hibernate.dialect.type.spi.SizeStrategy;
+import org.hibernate.dialect.type.spi.StandardSizeStrategy;
 import org.hibernate.dialect.sql.ast.spi.NullOrdering;
 import org.hibernate.dialect.OracleDialect;
 import org.hibernate.dialect.lock.spi.RowLockStrategy;
@@ -56,7 +58,8 @@ import org.hibernate.dialect.function.TrimFunction;
 import org.hibernate.dialect.lock.PessimisticLockStyle;
 import org.hibernate.dialect.lock.spi.LockTimeoutType;
 import org.hibernate.dialect.lock.spi.LockingSupport;
-import org.hibernate.dialect.lock.spi.StandardLockingSupports;
+import org.hibernate.dialect.lock.internal.LockingSupportParameterized;
+import org.hibernate.dialect.lock.spi.TransactionConcurrencyResolver;
 import org.hibernate.dialect.namespace.spi.NamespaceSupport;
 import org.hibernate.dialect.namespace.spi.NamespaceSupports;
 import org.hibernate.dialect.lock.spi.OuterJoinLockingType;
@@ -66,6 +69,7 @@ import org.hibernate.dialect.schema.spi.ConstraintDropMode;
 import org.hibernate.dialect.schema.spi.IndexNameQualification;
 import org.hibernate.dialect.schema.spi.SchemaDropSupport;
 import org.hibernate.dialect.temporaltype.spi.IntervalType;
+import org.hibernate.engine.jdbc.Size;
 import org.hibernate.engine.jdbc.dialect.spi.DialectResolutionInfo;
 import org.hibernate.engine.jdbc.env.spi.IdentifierHelper;
 import org.hibernate.dialect.identifier.spi.IdentifierHelperBuildRequest;
@@ -94,6 +98,8 @@ import org.hibernate.sql.exec.spi.JdbcOperation;
 import org.hibernate.tool.schema.extract.spi.SequenceInformationExtractor;
 import org.hibernate.tool.schema.extract.spi.SequenceInformationExtractors;
 import org.hibernate.type.StandardBasicTypes;
+import org.hibernate.type.descriptor.java.BasicPluralJavaType;
+import org.hibernate.type.descriptor.java.JavaType;
 import org.hibernate.type.descriptor.java.PrimitiveByteArrayJavaType;
 import org.hibernate.type.descriptor.jdbc.JdbcType;
 import org.hibernate.type.descriptor.jdbc.JsonJdbcType;
@@ -175,6 +181,32 @@ public class AltibaseDialect extends Dialect implements CurrentTemporalSupport, 
 
 	@Override public TypeSizingProfile getTypeSizingProfile() { return typeSizingProfile; }
 
+	// Altibase has no ARRAY type, so basic arrays and collections are serialized into
+	// a single VARBINARY column. Size that column for the whole array rather than for
+	// one element, which would give e.g. VARBYTE(11) for an int[].
+	private final SizeStrategy sizeStrategy = new StandardSizeStrategy( this ) {
+		@Override
+		public Size resolveSize(
+				JdbcType jdbcType,
+				JavaType<?> javaType,
+				Integer precision,
+				Integer scale,
+				Long length) {
+			final Size size = super.resolveSize( jdbcType, javaType, precision, scale, length );
+			if ( javaType instanceof BasicPluralJavaType<?>
+					&& ( length == null || length == Size.DEFAULT_LENGTH )
+					&& size.getLength() != null ) {
+				size.setLength( javaType.getDefaultSqlLength( AltibaseDialect.this, jdbcType ) );
+			}
+			return size;
+		}
+	};
+
+	@Override
+	public SizeStrategy getSizeStrategy() {
+		return sizeStrategy;
+	}
+
 	private static final DatabaseVersion MINIMUM_VERSION = DatabaseVersion.make( 7, 1 );
 	// Altibase's IN-list limit is around 1,020 elements; use 1,000 to stay below
 	// that limit and avoid "Calculation stack overflow" during prepare.
@@ -182,7 +214,9 @@ public class AltibaseDialect extends Dialect implements CurrentTemporalSupport, 
 	private static final Pattern CHECK_CONSTRAINT_NAME_PATTERN = Pattern.compile( "Check constraint (.+) violated" );
 	private static final Pattern FOR_CONSTRAINT_NAME_PATTERN = Pattern.compile( ".*\\sfor\\s+([^.]+)\\.?" );
 	private static final Pattern COLON_CONSTRAINT_NAME_PATTERN = Pattern.compile( ".*:\\s*(.+)" );
-	private static final LockingSupport LOCKING_SUPPORT = StandardLockingSupports.parameterized(
+	// Built directly because StandardLockingSupports.parameterized(..., supportsInnerJoins, resolver)
+	// passes supportsInnerJoins into the readsWaitForUncommittedWrites constructor parameter.
+	private static final LockingSupport LOCKING_SUPPORT = new LockingSupportParameterized(
 			PessimisticLockStyle.CLAUSE,
 			RowLockStrategy.NONE,
 			LockTimeoutType.QUERY,
@@ -190,8 +224,13 @@ public class AltibaseDialect extends Dialect implements CurrentTemporalSupport, 
 			LockTimeoutType.NONE,
 			OuterJoinLockingType.UNSUPPORTED,
 			false,
-			org.hibernate.community.dialect.lock.internal.AltibaseTransactionConcurrencyResolver.INSTANCE
-	);
+			true
+	) {
+		@Override
+		public TransactionConcurrencyResolver getTransactionConcurrencyResolver() {
+			return org.hibernate.community.dialect.lock.internal.AltibaseTransactionConcurrencyResolver.INSTANCE;
+		}
+	};
 
 	@SuppressWarnings("unused")
 	public AltibaseDialect() {
