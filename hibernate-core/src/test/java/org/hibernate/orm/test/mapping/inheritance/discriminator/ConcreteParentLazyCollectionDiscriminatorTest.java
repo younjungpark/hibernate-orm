@@ -4,8 +4,10 @@ import java.util.HashSet;
 import java.util.Set;
 
 import org.hibernate.Hibernate;
+import org.hibernate.testing.orm.junit.DialectFeatureChecks;
 import org.hibernate.testing.orm.junit.DomainModel;
 import org.hibernate.testing.orm.junit.JiraKey;
+import org.hibernate.testing.orm.junit.RequiresDialectFeature;
 import org.hibernate.testing.orm.junit.SessionFactory;
 import org.hibernate.testing.orm.junit.SessionFactoryScope;
 
@@ -43,6 +45,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 		ConcreteParentLazyCollectionDiscriminatorTest.SomeEntity.class
 })
 @SessionFactory
+@RequiresDialectFeature(feature = DialectFeatureChecks.SupportsIdentityColumns.class)
 @JiraKey("HHH-14069")
 public class ConcreteParentLazyCollectionDiscriminatorTest {
 	@AfterEach
