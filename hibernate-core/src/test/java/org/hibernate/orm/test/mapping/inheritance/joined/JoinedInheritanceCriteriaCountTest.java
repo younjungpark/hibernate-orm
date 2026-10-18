@@ -1,7 +1,9 @@
 package org.hibernate.orm.test.mapping.inheritance.joined;
 
+import org.hibernate.testing.orm.junit.DialectFeatureChecks;
 import org.hibernate.testing.orm.junit.DomainModel;
 import org.hibernate.testing.orm.junit.JiraKey;
+import org.hibernate.testing.orm.junit.RequiresDialectFeature;
 import org.hibernate.testing.orm.junit.SessionFactory;
 import org.hibernate.testing.orm.junit.SessionFactoryScope;
 import org.junit.jupiter.api.AfterEach;
@@ -29,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 } )
 @SessionFactory
 @JiraKey( "HHH-20818" )
+@RequiresDialectFeature(feature = DialectFeatureChecks.SupportsIdentityColumns.class)
 public class JoinedInheritanceCriteriaCountTest {
 	@AfterEach
 	void cleanup(SessionFactoryScope scope) {
