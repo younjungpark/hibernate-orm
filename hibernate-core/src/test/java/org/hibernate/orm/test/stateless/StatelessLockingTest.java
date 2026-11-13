@@ -12,10 +12,12 @@ import jakarta.persistence.Version;
 import org.hibernate.annotations.Cache;
 import org.hibernate.annotations.CacheConcurrencyStrategy;
 import org.hibernate.cfg.AvailableSettings;
+import org.hibernate.community.dialect.AltibaseDialect;
 import org.hibernate.testing.orm.TransactionConcurrencyChecks;
 import org.hibernate.testing.orm.junit.EntityManagerFactoryScope;
 import org.hibernate.testing.orm.junit.Jpa;
 import org.hibernate.testing.orm.junit.Setting;
+import org.hibernate.testing.orm.junit.SkipForDialect;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -119,6 +121,8 @@ class StatelessLockingTest {
 
 	@ParameterizedTest
 	@EnumSource(value = LockModeType.class, names = { "WRITE", "OPTIMISTIC_FORCE_INCREMENT", "PESSIMISTIC_FORCE_INCREMENT" })
+	@SkipForDialect(dialectClass = AltibaseDialect.class,
+			reason = "Altibase does not allow joins with FOR UPDATE, and follow-on locking rejects the scalar-only cross join root")
 	void testDuplicateQueryResults(LockModeType mode, EntityManagerFactoryScope scope) {
 		try ( var agent = scope.getEntityManagerFactory().createEntityAgent() ) {
 			final var transaction = agent.getTransaction();
