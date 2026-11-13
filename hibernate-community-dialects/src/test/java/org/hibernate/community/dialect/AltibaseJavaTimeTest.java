@@ -41,8 +41,9 @@ public class AltibaseJavaTimeTest {
 	}
 
 	@Test
+	@ServiceRegistry(settings = @Setting(name = AvailableSettings.JAVA_TIME_USE_DIRECT_JDBC, value = "true"))
 	@SessionFactory
-	void testDefaultJavaTimeRoundTrip(SessionFactoryScope scope) {
+	void testDirectJavaTimeRoundTrip(SessionFactoryScope scope) {
 		assertThat( scope.getSessionFactory().getSessionFactoryOptions()
 				.isDirectJavaTimeJdbcAccessEnabled( LocalDateTime.class ) ).isTrue();
 		final TemporalEntity original = entityWithNanos( 294520000 );
