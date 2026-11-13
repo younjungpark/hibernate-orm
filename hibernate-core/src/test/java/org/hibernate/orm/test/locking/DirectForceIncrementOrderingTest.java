@@ -45,6 +45,7 @@ import static jakarta.persistence.PessimisticLockScope.EXTENDED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hibernate.LockMode.PESSIMISTIC_FORCE_INCREMENT;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /// Direct force increments complete collection acquisition before changing versions
 /// or presenting completed results to list transformers and callers.
@@ -258,6 +259,9 @@ class DirectForceIncrementOrderingTest {
 	@ParameterizedTest
 	@ValueSource(booleans = { false, true })
 	void cursorDoesNotIncrementUnconsumedResults(boolean fetch, SessionFactoryScope scope) {
+		if ( fetch ) {
+			requireInnerJoinLocking( scope );
+		}
 		scope.inTransaction( session -> {
 			final var query = session.createQuery( "from DirectForceItem i " + (fetch ? "join fetch i.tags " : "") + "order by i.id", Item.class )
 					.setHibernateLockMode( PESSIMISTIC_FORCE_INCREMENT ).setLockScope( EXTENDED )
@@ -321,6 +325,7 @@ class DirectForceIncrementOrderingTest {
 	@ParameterizedTest
 	@ValueSource(booleans = { false, true })
 	void allEntityTypesAcquireBeforeEitherIncrement(boolean scroll, SessionFactoryScope scope) {
+		requireInnerJoinLocking( scope );
 		scope.inTransaction( session -> {
 			scope.getCollectingStatementObserver().clear();
 			final var query = session.createQuery( "select i,o from DirectForceItem i cross join DirectForceOther o where i.id=1", Object[].class )
@@ -345,6 +350,7 @@ class DirectForceIncrementOrderingTest {
 	@ParameterizedTest
 	@ValueSource(booleans = { false, true })
 	void duplicateRowsDoNotRepeatIncrement(boolean stream, SessionFactoryScope scope) {
+		requireInnerJoinLocking( scope );
 		scope.inTransaction( session -> {
 			final var query = session.createQuery( "select i from DirectForceItem i join i.tags t where i.id=1 order by t", Item.class )
 					.setHibernateLockMode( PESSIMISTIC_FORCE_INCREMENT ).setLockScope( EXTENDED )
@@ -422,6 +428,13 @@ class DirectForceIncrementOrderingTest {
 				.noneMatch( statement -> statement.startsWith( "select " ) && statement.contains( "from direct_force_" ) );
 		assertThat( sql.subList( 0, firstIncrement ) ).anyMatch( statement -> statement.contains( "from direct_force_tags " ) );
 		assertThat( sql.subList( 0, firstIncrement ) ).anyMatch( statement -> statement.contains( "from direct_force_labels " ) );
+	}
+
+	private static void requireInnerJoinLocking(SessionFactoryScope scope) {
+		assumeTrue(
+				scope.getSessionFactory().getJdbcServices().getDialect().getLockingSupport().getMetadata().supportsInnerJoins(),
+				"Database requires follow-on locking for joins, which this query disallows"
+		);
 	}
 
 	private static List<String> sql(SessionFactoryScope scope) {
